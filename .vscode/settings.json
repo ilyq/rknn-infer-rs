@@ -1,0 +1,15 @@
+{
+    // 指定 Python 文件的默认格式化器为 Ruff
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit"
+        }
+    },
+    "clangd.enable": false,
+    "ruff.importStrategy": "fromEnvironment",
+    "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.autocomplete": "default",
+    "C_Cpp.errorSquiggles": "enabled"
+}
