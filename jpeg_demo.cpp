@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <turbojpeg.h>
+#include <chrono>
 
 bool decode_jpeg_to_rgb(const char *jpeg_path, unsigned char **out_bufffer, int *out_width, int *out_height)
 {
@@ -20,6 +21,7 @@ bool decode_jpeg_to_rgb(const char *jpeg_path, unsigned char **out_bufffer, int 
     fread(jpeg_data, 1, jpeg_size, fp);
     fclose(fp);
 
+    auto t0 = std::chrono::high_resolution_clock::now();
     tjhandle handle = tjInitDecompress();
     if (!handle)
     {
@@ -57,6 +59,10 @@ bool decode_jpeg_to_rgb(const char *jpeg_path, unsigned char **out_bufffer, int 
 
     tjDestroy(handle);
     free(jpeg_data);
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+    double cost_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    printf("Preprocess cost: %.3f ms\n", cost_ms);
     return true;
 }
 
@@ -65,11 +71,15 @@ int main()
     unsigned char *rgb_data = nullptr;
     int w, h;
 
-    if (!decode_jpeg_to_rgb("banan.jpg", &rgb_data, &w, &h))
+    auto t0 = std::chrono::high_resolution_clock::now();
+    if (!decode_jpeg_to_rgb("banan_1280.jpg", &rgb_data, &w, &h))
     {
         printf("Decode failed\n");
         return -1;
     }
+    auto t1 = std::chrono::high_resolution_clock::now();
+    double cost_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    printf("Total preprocess cost: %.3f ms\n", cost_ms);
     printf("Decode success: %d x %d\n", w, h);
 
     free(rgb_data);

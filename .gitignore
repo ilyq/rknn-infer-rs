@@ -121,3 +121,6 @@ rknn-toolkit2
 
 models
 3rdparty/
+jpeg_demo
+*.png
+*.jpg
