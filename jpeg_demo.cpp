@@ -72,7 +72,7 @@ int main()
     int w, h;
 
     auto t0 = std::chrono::high_resolution_clock::now();
-    if (!decode_jpeg_to_rgb("banan_1280.jpg", &rgb_data, &w, &h))
+    if (!decode_jpeg_to_rgb("banan_1920.jpg", &rgb_data, &w, &h))
     {
         printf("Decode failed\n");
         return -1;
