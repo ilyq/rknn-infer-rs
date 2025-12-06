@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <turbojpeg.h>
 #include <chrono>
+#include <algorithm>
 
 #include "im2d.h"
 #include "RgaUtils.h"
@@ -73,16 +74,16 @@ static void dma_free(int fd, void *ptr, int size)
 // -----------------------------
 int main(int argc, char **argv)
 {
-    if (argc != 5)
+    if (argc != 3)
     {
-        printf("Usage: %s in.jpg out.jpg out_w out_h\n", argv[0]);
+        printf("Usage: %s in.jpg out.jpg\n", argv[0]);
         return -1;
     }
 
     const char *in_path = argv[1];
     const char *out_path = argv[2];
-    int out_w = atoi(argv[3]);
-    int out_h = atoi(argv[4]);
+
+    const int target_size = 640;
 
     auto t0 = std::chrono::high_resolution_clock::now();
 
@@ -104,6 +105,7 @@ int main(int argc, char **argv)
     fclose(f);
 
     auto t1 = std::chrono::high_resolution_clock::now();
+
     // -----------------------------
     // 2. 解码 JPEG 到 DMA 内存（RGBA）
     // -----------------------------
@@ -137,9 +139,38 @@ int main(int argc, char **argv)
     auto t2 = std::chrono::high_resolution_clock::now();
 
     // -----------------------------
-    // 3. 分配 RGA 输出 DMA 内存
+    // 3. 计算 letterbox 缩放和 padding
     // -----------------------------
-    size_t dst_size = out_w * out_h * 4;
+    float scale = std::min(target_size / (float)in_w, target_size / (float)in_h);
+    int resize_w = static_cast<int>(in_w * scale);
+    int resize_h = static_cast<int>(in_h * scale);
+    int pad_w = target_size - resize_w;
+    int pad_h = target_size - resize_h;
+
+    // -----------------------------
+    // 4. RGA resize 到临时 buffer
+    // -----------------------------
+    int tmp_fd;
+    void *tmp_dma;
+    dma_alloc(resize_w * resize_h * 4, &tmp_fd, &tmp_dma);
+    rga_buffer_t src = wrapbuffer_fd(src_fd, in_w, in_h, RK_FORMAT_RGBA_8888);
+    rga_buffer_t dst_resize = wrapbuffer_fd(tmp_fd, resize_w, resize_h, RK_FORMAT_RGBA_8888);
+
+    double fx = (double)resize_w / in_w;
+    double fy = (double)resize_h / in_h;
+    int ret = imresize(src, dst_resize, fx, fy, 0, 1, nullptr);
+    if (ret != IM_STATUS_SUCCESS)
+    {
+        printf("imresize failed: %s\n", imStrError((IM_STATUS)ret));
+        return -1;
+    }
+
+    auto t3 = std::chrono::high_resolution_clock::now();
+
+    // -----------------------------
+    // 5. 分配最终 640x640 DMA 输出 buffer
+    // -----------------------------
+    size_t dst_size = target_size * target_size * 4;
     int dst_fd;
     void *dst_dma;
     if (dma_alloc(dst_size, &dst_fd, &dst_dma) < 0)
@@ -148,35 +179,34 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    auto t3 = std::chrono::high_resolution_clock::now();
-
     // -----------------------------
-    // 4. RGA resize
+    // 6. CPU memcpy + padding 实现 letterbox
     // -----------------------------
-    rga_buffer_t src = wrapbuffer_fd(src_fd, in_w, in_h, RK_FORMAT_RGBA_8888);
-    rga_buffer_t dst = wrapbuffer_fd(dst_fd, out_w, out_h, RK_FORMAT_RGBA_8888);
+    unsigned char *dst_ptr = (unsigned char *)dst_dma;
+    unsigned char *resize_ptr = (unsigned char *)tmp_dma;
+    memset(dst_ptr, 0x80, dst_size); // RGBA 黑色背景
 
-    // im_rect src_rect = {0, 0, in_w, in_h};
-    // im_rect dst_rect = {0, 0, out_w, out_h};
-
-    int ret = imresize(src, dst);
-    if (ret != IM_STATUS_SUCCESS)
+    for (int y = 0; y < resize_h; y++)
     {
-        printf("imresize failed: %s\n", imStrError((IM_STATUS)ret));
-        return -1;
+        memcpy(
+            dst_ptr + ((y + pad_h / 2) * target_size + pad_w / 2) * 4,
+            resize_ptr + y * resize_w * 4,
+            resize_w * 4);
     }
+
+    dma_free(tmp_fd, tmp_dma, resize_w * resize_h * 4);
 
     auto t4 = std::chrono::high_resolution_clock::now();
 
     // -----------------------------
-    // 5. JPEG 编码直接从 DMA 内存
+    // 7. JPEG 编码直接从 DMA 内存
     // -----------------------------
     tjhandle tjc = tjInitCompress();
     unsigned char *out_jpg_buf = nullptr;
     unsigned long out_jpg_size = 0;
 
     if (tjCompress2(tjc, (unsigned char *)dst_dma,
-                    out_w, out_w * 4, out_h,
+                    target_size, target_size * 4, target_size,
                     TJPF_RGBA,
                     &out_jpg_buf, &out_jpg_size,
                     TJSAMP_420, 90, TJFLAG_FASTDCT) != 0)
@@ -184,8 +214,6 @@ int main(int argc, char **argv)
         printf("tjCompress2 failed: %s\n", tjGetErrorStr());
         return -1;
     }
-
-    auto t5 = std::chrono::high_resolution_clock::now();
 
     FILE *fo = fopen(out_path, "wb");
     fwrite(out_jpg_buf, 1, out_jpg_size, fo);
@@ -197,18 +225,19 @@ int main(int argc, char **argv)
     dma_free(src_fd, src_dma, src_size);
     dma_free(dst_fd, dst_dma, dst_size);
 
-    printf("✅ Zero-copy RGA resize success: %dx%d -> %dx%d\n", in_w, in_h, out_w, out_h);
+    auto t5 = std::chrono::high_resolution_clock::now();
 
-    auto t6 = std::chrono::high_resolution_clock::now();
+    printf("✅ YOLOv8 letterbox resize success: %dx%d -> 640x640 (scale %.3f, pad %d,%d)\n",
+           in_w, in_h, scale, pad_w, pad_h);
 
-    double open_jpg_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
     double decode_jpg_ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
-    double dma_alloc_ms = std::chrono::duration<double, std::milli>(t3 - t2).count();
-    double rga_resize_ms = std::chrono::duration<double, std::milli>(t4 - t3).count();
-    double encode_jpg_ms = std::chrono::duration<double, std::milli>(t5 - t4).count();
-    double save_jpg_ms = std::chrono::duration<double, std::milli>(t6 - t5).count();
-    double total_ms = std::chrono::duration<double, std::milli>(t6 - t0).count();
-    printf("open_jpg: %.3f ms, decode_jpg: %.3f ms, dma_alloc: %.3f, rga_resize: %.3f ms, encode_jpg: %3.f ms, save_jpg: %.3f ms, total: %.3f ms\n", open_jpg_ms, decode_jpg_ms, dma_alloc_ms, rga_resize_ms, encode_jpg_ms, save_jpg_ms, total_ms);
+    double resize_ms = std::chrono::duration<double, std::milli>(t3 - t2).count();
+    double padding_ms = std::chrono::duration<double, std::milli>(t4 - t3).count();
+    double encode_ms = std::chrono::duration<double, std::milli>(t5 - t4).count();
+    double total_ms = std::chrono::duration<double, std::milli>(t5 - t0).count();
+
+    printf("decode: %.3f ms, resize: %.3f ms, padding: %.3f ms, encode: %.3f ms, total: %.3f ms\n",
+           decode_jpg_ms, resize_ms, padding_ms, encode_ms, total_ms);
 
     return 0;
 }
