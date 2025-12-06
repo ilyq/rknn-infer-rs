@@ -184,7 +184,7 @@ int main(int argc, char **argv)
     // -----------------------------
     unsigned char *dst_ptr = (unsigned char *)dst_dma;
     unsigned char *resize_ptr = (unsigned char *)tmp_dma;
-    memset(dst_ptr, 0x80, dst_size); // RGBA 黑色背景
+    memset(dst_ptr, 0, dst_size); // RGBA 黑色背景
 
     for (int y = 0; y < resize_h; y++)
     {
