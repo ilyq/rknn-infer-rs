@@ -125,3 +125,5 @@ jpeg_demo
 *.png
 *.jpg
 toolchains
+jpeg_demo_arm
+rga_demo_arm

@@ -11,7 +11,13 @@
     "ruff.importStrategy": "fromEnvironment",
     "C_Cpp.intelliSenseEngine": "default",
     "C_Cpp.autocomplete": "default",
+    "C_Cpp.suggestSnippets": true,
     "C_Cpp.errorSquiggles": "enabled",
+    "editor.quickSuggestions": {
+        "other": true,
+        "comments": true,
+        "strings": true
+    },
     "files.associations": {
         "array": "cpp",
         "atomic": "cpp",

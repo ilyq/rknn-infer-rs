@@ -3,7 +3,8 @@
         {
             "name": "Linux",
             "includePath": [
-                "/opt/libjpeg-turbo/include/"
+                "/opt/libjpeg-turbo/include/",
+                "${workspaceFolder}/3rdparty/librga/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
