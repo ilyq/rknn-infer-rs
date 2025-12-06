@@ -3,8 +3,8 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
-
 #include <turbojpeg.h>
+#include <chrono>
 
 #include "im2d.h"
 #include "RgaUtils.h"
@@ -84,6 +84,8 @@ int main(int argc, char **argv)
     int out_w = atoi(argv[3]);
     int out_h = atoi(argv[4]);
 
+    auto t0 = std::chrono::high_resolution_clock::now();
+
     // -----------------------------
     // 1. 读取 JPEG 文件到内存
     // -----------------------------
@@ -101,6 +103,7 @@ int main(int argc, char **argv)
     fread(jpg_buf, 1, jpg_size, f);
     fclose(f);
 
+    auto t1 = std::chrono::high_resolution_clock::now();
     // -----------------------------
     // 2. 解码 JPEG 到 DMA 内存（RGBA）
     // -----------------------------
@@ -131,6 +134,8 @@ int main(int argc, char **argv)
     tjDestroy(tjd);
     delete[] jpg_buf;
 
+    auto t2 = std::chrono::high_resolution_clock::now();
+
     // -----------------------------
     // 3. 分配 RGA 输出 DMA 内存
     // -----------------------------
@@ -143,14 +148,16 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    auto t3 = std::chrono::high_resolution_clock::now();
+
     // -----------------------------
     // 4. RGA resize
     // -----------------------------
     rga_buffer_t src = wrapbuffer_fd(src_fd, in_w, in_h, RK_FORMAT_RGBA_8888);
     rga_buffer_t dst = wrapbuffer_fd(dst_fd, out_w, out_h, RK_FORMAT_RGBA_8888);
 
-    im_rect src_rect = {0, 0, in_w, in_h};
-    im_rect dst_rect = {0, 0, out_w, out_h};
+    // im_rect src_rect = {0, 0, in_w, in_h};
+    // im_rect dst_rect = {0, 0, out_w, out_h};
 
     int ret = imresize(src, dst);
     if (ret != IM_STATUS_SUCCESS)
@@ -158,6 +165,8 @@ int main(int argc, char **argv)
         printf("imresize failed: %s\n", imStrError((IM_STATUS)ret));
         return -1;
     }
+
+    auto t4 = std::chrono::high_resolution_clock::now();
 
     // -----------------------------
     // 5. JPEG 编码直接从 DMA 内存
@@ -176,6 +185,8 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    auto t5 = std::chrono::high_resolution_clock::now();
+
     FILE *fo = fopen(out_path, "wb");
     fwrite(out_jpg_buf, 1, out_jpg_size, fo);
     fclose(fo);
@@ -187,5 +198,17 @@ int main(int argc, char **argv)
     dma_free(dst_fd, dst_dma, dst_size);
 
     printf("✅ Zero-copy RGA resize success: %dx%d -> %dx%d\n", in_w, in_h, out_w, out_h);
+
+    auto t6 = std::chrono::high_resolution_clock::now();
+
+    double open_jpg_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    double decode_jpg_ms = std::chrono::duration<double, std::milli>(t2 - t1).count();
+    double dma_alloc_ms = std::chrono::duration<double, std::milli>(t3 - t2).count();
+    double rga_resize_ms = std::chrono::duration<double, std::milli>(t4 - t3).count();
+    double encode_jpg_ms = std::chrono::duration<double, std::milli>(t5 - t4).count();
+    double save_jpg_ms = std::chrono::duration<double, std::milli>(t6 - t5).count();
+    double total_ms = std::chrono::duration<double, std::milli>(t6 - t0).count();
+    printf("open_jpg: %.3f ms, decode_jpg: %.3f ms, dma_alloc: %.3f, rga_resize: %.3f ms, encode_jpg: %3.f ms, save_jpg: %.3f ms, total: %.3f ms\n", open_jpg_ms, decode_jpg_ms, dma_alloc_ms, rga_resize_ms, encode_jpg_ms, save_jpg_ms, total_ms);
+
     return 0;
 }
