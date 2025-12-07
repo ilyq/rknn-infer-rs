@@ -42,3 +42,39 @@ g++ jpeg_demo.cpp -o jpeg_demo \
 -Wall: 显示所有警告信息，帮助发现潜在问题
 -O2 -Wall
 ```
+
+# rknn yolo 模型输入和输出
+
+```
+input
+name: norm_tensor:0
+tensor: int8[1,3,640,640]
+
+output
+name: norm_tensor:1
+tensor: int8[1,64,80,80]
+output1
+name: norm_tensor:2
+tensor: int8[1,80,80,80]
+output2
+name: norm_tensor:3
+tensor: int8[1,1,80,80]
+output3
+name: norm_tensor:4
+tensor: int8[1,64,40,40]
+output4
+name: norm_tensor:5
+tensor: int8[1,80,40,40]
+output5
+name: norm_tensor:6
+tensor: int8[1,1,40,40]
+output6
+name: norm_tensor:7
+tensor: int8[1,64,20,20]
+output7
+name: norm_tensor:8
+tensor: int8[1,80,20,20]
+output8
+name: norm_tensor:9
+tensor: int8[1,1,20,20]
+```

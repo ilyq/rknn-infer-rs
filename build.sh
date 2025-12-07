@@ -45,10 +45,13 @@ $CXX \
     -o rga_demo_arm \
     -I./3rdparty/jpeg_turbo/include \
     -I./3rdparty/librga/include \
+    -I./3rdparty/rknpu2/include \
     -L./3rdparty/jpeg_turbo/Linux/armhf_uclibc \
     -L./3rdparty/librga/Linux/armhf_uclibc \
+    -L./3rdparty/rknpu2/Linux/armhf_uclibc \
     -lturbojpeg \
     -lrga \
+    -lrknnmrt \
     -O2 -Wall -s
 
 echo "完成！输出文件: rga_demo_arm"

@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/3rdparty/jpeg_turbo/include",
-                "${workspaceFolder}/3rdparty/librga/include"
+                "${workspaceFolder}/3rdparty/librga/include",
+                "${workspaceFolder}/3rdparty/rknpu2/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
