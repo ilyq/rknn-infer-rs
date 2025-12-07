@@ -3,7 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
-                "/opt/libjpeg-turbo/include/",
+                "${workspaceFolder}/3rdparty/jpeg_turbo/include",
                 "${workspaceFolder}/3rdparty/librga/include"
             ],
             "defines": [],
