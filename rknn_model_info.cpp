@@ -49,8 +49,9 @@ public:
 
             std::cout << "\n"
                       << std::endl;
-            std::cout << "data_type=" << a.type << "\n"
-                      << "data_format=" << a.fmt << "\n"
+            std::cout << "data_type=" << get_type_string(a.type) << "\n"
+                      << "data_format=" << get_format_string(a.fmt) << "\n"
+                      << "qnt_type=" << get_qnt_type_string(a.qnt_type) << "\n"
                       << std::endl;
         }
 
