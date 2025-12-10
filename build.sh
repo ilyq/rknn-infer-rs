@@ -20,7 +20,6 @@
 # file jpeg_demo_arm
 
 
-rm -rf rga_demo_arm
 
 # 获取当前脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -40,19 +39,39 @@ if [ ! -f "$CXX" ]; then
 fi
 
 
+# rm -rf rga_demo_arm
+
+# $CXX \
+#     rga_demo.cpp \
+#     -o rga_demo_arm \
+#     -I./3rdparty/jpeg_turbo/include \
+#     -I./3rdparty/librga/include \
+#     -L./3rdparty/jpeg_turbo/Linux/armhf_uclibc \
+#     -L./3rdparty/librga/Linux/armhf_uclibc \
+#     -lturbojpeg \
+#     -lrga \
+#     -O2 -Wall -s
+
+# echo "完成！输出文件: rga_demo_arm"
+# file rga_demo_arm
+
+
+rm -rf rknn_infer_demo_arm
+
 $CXX \
-    rga_demo.cpp \
-    -o rga_demo_arm \
+    rknn_infer_demo.cpp \
+    -o rknn_infer_demo_arm \
     -I./3rdparty/jpeg_turbo/include \
     -I./3rdparty/librga/include \
     -I./3rdparty/rknpu2/include \
     -L./3rdparty/jpeg_turbo/Linux/armhf_uclibc \
     -L./3rdparty/librga/Linux/armhf_uclibc \
-    -L./3rdparty/rknpu2/Linux/armhf_uclibc \
+    -L./3rdparty/rknpu2/Linux/armhf-uclibc \
     -lturbojpeg \
     -lrga \
     -lrknnmrt \
     -O2 -Wall -s
 
-echo "完成！输出文件: rga_demo_arm"
-file rga_demo_arm
+echo "完成！输出文件: rknn_infer_demo_arm"
+file rknn_infer_demo_arm
+
