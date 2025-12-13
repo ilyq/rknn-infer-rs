@@ -129,3 +129,4 @@ jpeg_demo_arm
 rga_demo_arm
 rknn_model_info_arm
 rknn_mobilenet_infer_demo_arm
+rknn_yolov8s_infer_demo_arm
