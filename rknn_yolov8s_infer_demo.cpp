@@ -8,6 +8,7 @@
 #include <math.h>
 #include <vector>
 #include <algorithm>
+#include <chrono>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -133,7 +134,7 @@ static void process_branch(
     rknn_tensor_attr &sum_attr,
     std::vector<Box> &out)
 {
-    int grid = gh * gw;
+    // int grid = gh * gw;
     int8_t sum_th = (int8_t)(CONF_THRESH / sum_attr.scale + sum_attr.zp);
 
     for (int i = 0; i < gh; i++)
@@ -196,6 +197,7 @@ int main(int argc, char **argv)
     const char *img_path = argv[2];
 
     /******************** 1. RKNN init ********************/
+    auto t1 = std::chrono::high_resolution_clock::now();
     rknn_context ctx;
     if (rknn_init(&ctx, (void *)model_path, 0, 0, NULL) != RKNN_SUCC)
     {
@@ -207,6 +209,7 @@ int main(int argc, char **argv)
     rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &io_num, sizeof(io_num));
 
     /******************** 2. query input ********************/
+    auto t2 = std::chrono::high_resolution_clock::now();
     rknn_tensor_attr in_attr;
     memset(&in_attr, 0, sizeof(in_attr));
     in_attr.index = 0;
@@ -219,6 +222,7 @@ int main(int argc, char **argv)
     rknn_set_io_mem(ctx, input_mem, &in_attr);
 
     /******************** 3. query outputs ********************/
+    auto t3 = std::chrono::high_resolution_clock::now();
     rknn_tensor_attr out_attr[9];
     rknn_tensor_mem *out_mem[9];
 
@@ -233,6 +237,7 @@ int main(int argc, char **argv)
     }
 
     /******************** 4. read JPEG ********************/
+    auto t4 = std::chrono::high_resolution_clock::now();
     FILE *fp = fopen(img_path, "rb");
     if (!fp)
     {
@@ -248,6 +253,7 @@ int main(int argc, char **argv)
     fclose(fp);
 
     /******************** 5. JPEG -> RGBA (DMA) ********************/
+    auto t5 = std::chrono::high_resolution_clock::now();
     tjhandle tjd = tjInitDecompress();
     int img_w, img_h, subsamp, cs;
     tjDecompressHeader3(tjd, jpg_buf, jpg_size,
@@ -267,6 +273,7 @@ int main(int argc, char **argv)
     free(jpg_buf);
 
     /******************** 6. RGA resize ********************/
+    auto t6 = std::chrono::high_resolution_clock::now();
     float scale = fmin(640.f / img_w, 640.f / img_h);
     int resize_w = (int)(img_w * scale);
     int resize_h = (int)(img_h * scale);
@@ -284,6 +291,7 @@ int main(int argc, char **argv)
              0, 1, NULL);
 
     /******************** 7. letterbox to 640x640 RGB ********************/
+    auto t7 = std::chrono::high_resolution_clock::now();
     int lb_fd;
     void *lb_dma;
     dma_alloc(640 * 640 * 3, &lb_fd, &lb_dma);
@@ -310,12 +318,15 @@ int main(int argc, char **argv)
     }
 
     /******************** 8. copy to RKNN input ********************/
+    auto t8 = std::chrono::high_resolution_clock::now();
     memcpy(input_mem->virt_addr, lb_dma, 640 * 640 * 3);
 
     /******************** 9. run ********************/
+    auto t9 = std::chrono::high_resolution_clock::now();
     rknn_run(ctx, NULL);
 
     /******************** 10. post process ********************/
+    auto t10 = std::chrono::high_resolution_clock::now();
     std::vector<Box> boxes;
 
     process_branch((int8_t *)out_mem[0]->virt_addr,
@@ -339,6 +350,7 @@ int main(int argc, char **argv)
     nms(boxes);
 
     /******************** 11. output ********************/
+    auto t11 = std::chrono::high_resolution_clock::now();
     for (auto &b : boxes)
     {
         printf("%s %.3f [%d %d %d %d]\n",
@@ -347,6 +359,31 @@ int main(int argc, char **argv)
     }
 
     /******************** 12. cleanup ********************/
+    auto t12 = std::chrono::high_resolution_clock::now();
+    double rknn_init_dration = std::chrono::duration<double, std::milli>(t2 - t1).count();
+    double rknn_query_dration = std::chrono::duration<double, std::milli>(t3 - t2).count();
+    double rknn_query_input_dration = std::chrono::duration<double, std::milli>(t4 - t3).count();
+    double rknn_query_outputs_dration = std::chrono::duration<double, std::milli>(t5 - t4).count();
+    double read_jpeg_dration = std::chrono::duration<double, std::milli>(t6 - t5).count();
+    double jpeg_rgba_dma_dration = std::chrono::duration<double, std::milli>(t7 - t6).count();
+    double rga_resize_dration = std::chrono::duration<double, std::milli>(t8 - t7).count();
+    double letterbox_dration = std::chrono::duration<double, std::milli>(t9 - t8).count();
+    double copy_to_rknn_input_dration = std::chrono::duration<double, std::milli>(t10 - t9).count();
+    double rknn_run_dration = std::chrono::duration<double, std::milli>(t11 - t10).count();
+    double post_process_dration = std::chrono::duration<double, std::milli>(t12 - t11).count();
+    double total_duration = std::chrono::duration<double, std::milli>(t12 - t1).count();
+    printf("rknn_init_dration:%.3f ms\n", rknn_init_dration);
+    printf("rknn_query_dration:%.3f ms\n", rknn_query_dration);
+    printf("rknn_query_input_dration:%.3f ms\n", rknn_query_input_dration);
+    printf("rknn_query_outputs_dration:%.3f ms\n", rknn_query_outputs_dration);
+    printf("read_jpeg_dration:%.3f ms\n", read_jpeg_dration);
+    printf("jpeg_rgba_dma_dration:%.3f ms\n", jpeg_rgba_dma_dration);
+    printf("rga_resize_dration:%.3f ms\n", rga_resize_dration);
+    printf("letterbox_dration:%.3f ms\n", letterbox_dration);
+    printf("copy_to_rknn_input_dration:%.3f ms\n", copy_to_rknn_input_dration);
+    printf("rknn_run_dration:%.3f ms\n", rknn_run_dration);
+    printf("post_process_dration:%.3f ms\n", post_process_dration);
+    printf("total_duration:%.3f ms\n", total_duration);
     rknn_destroy(ctx);
     return 0;
 }
