@@ -1,0 +1,9 @@
+[build]
+target = "armv7-uclibc.json"
+
+[target.armv7-uclibc.json]
+linker = "arm-rockchip830-linux-uclibcgnueabihf-gcc"
+
+[env]
+CC_armv7_uclibc = "arm-rockchip830-linux-uclibcgnueabihf-gcc"
+AR_armv7_uclibc = "arm-rockchip830-linux-uclibcgnueabihf-ar"
