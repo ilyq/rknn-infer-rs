@@ -1,4 +1,3 @@
-cargo-features = ["panic-immediate-abort"]
 
 [package]
 name = "turbo-pipeline"
@@ -6,4 +5,4 @@ version = "0.1.0"
 edition = "2021"
 
 [profile.release]
-panic = "immediate-abort"
+panic = "abort"
